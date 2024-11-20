@@ -1,45 +1,57 @@
 import streamlit as st
+from backend import DocumentQASystem
 import os
-from pathlib import Path
 
-# Importing the backend module
-from doc_qa_backend import DocumentQASystem
+# Initialize the backend system
+qa_system = DocumentQASystem()
 
-class DocumentQAInterface:
-    def __init__(self):
-        self.initialize_session_state()
-        self.setup_ui()
+# Function to handle document upload
+def upload_document():
+    uploaded_file = st.file_uploader("Choose a PDF document", type="pdf")
+    if uploaded_file is not None:
+        # Save the uploaded file to the server
+        file_path = os.path.join("uploaded_docs", uploaded_file.name)
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        
+        # Add the document to the system
+        doc_id = uploaded_file.name
+        qa_system.add_document(doc_id, file_path)
+        st.success(f"Document '{uploaded_file.name}' uploaded successfully!")
 
-    def initialize_session_state(self):
-        """Initialize session state variables."""
-        if 'qa_system' not in st.session_state:
-            st.session_state.qa_system = DocumentQASystem()
+# Function to display the chat interface
+def chat_interface():
+    st.header("Ask Questions About Your Document")
 
-        if 'chat_history' not in st.session_state:
-            st.session_state.chat_history = []
+    # Dropdown to select document
+    doc_ids = list(qa_system.documents.keys())
+    selected_doc = st.selectbox("Select a document", doc_ids)
 
-    def setup_ui(self):
-        """Setup Streamlit UI."""
-        st.title("Document QA System")
-        uploaded_file = st.file_uploader("Upload a PDF document", type="pdf")
+    if selected_doc:
+        question = st.text_input("Ask a question:")
+        
+        if st.button("Get Answer"):
+            if question:
+                response = qa_system.answer_question(selected_doc, question)
+                st.write(f"**Answer:** {response['answer']}")
+                st.write(f"**Source:** {response['source']}")
+            else:
+                st.warning("Please enter a question.")
 
-        if uploaded_file:
-            temp_file_path = self.save_uploaded_file(uploaded_file)
-            document = st.session_state.qa_system.process_document(temp_file_path)
-            st.write(f"Processed document: {document.filename}")
-            st.write(f"Total pages: {document.total_pages}")
-
-            for chunk in document.chunks:
-                st.write(f"Page {chunk.page_num}: {chunk.text}")
-
-    @staticmethod
-    def save_uploaded_file(uploaded_file) -> str:
-        """Save uploaded file to a temporary location."""
-        temp_dir = Path(tempfile.gettempdir())
-        temp_file_path = temp_dir / uploaded_file.name
-        with open(temp_file_path, 'wb') as f:
-            f.write(uploaded_file.read())
-        return str(temp_file_path)
+# Main interface
+def main():
+    st.title("Document Question-Answering System")
+    
+    # Sidebar with file upload
+    st.sidebar.header("Upload Document")
+    upload_document()
+    
+    # Chat interface to ask questions
+    chat_interface()
 
 if __name__ == "__main__":
-    app = DocumentQAInterface()
+    # Ensure the uploaded documents folder exists
+    if not os.path.exists("uploaded_docs"):
+        os.makedirs("uploaded_docs")
+
+    main()

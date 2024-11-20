@@ -1,14 +1,18 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer
 import PyPDF2
-import os
+import torch
 
 class DocumentQASystem:
     def __init__(self):
-        # Initialize the Phi-3 model and tokenizer
-        self.model_name = "microsoft/Phi-3-mini-4k-instruct"
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
-        self.qa_pipeline = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
+        # Initialize the model and tokenizer (using Phi-3)
+        try:
+            self.model_name = "microsoft/Phi-3-mini-4k-instruct"
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
+            print("Model and tokenizer loaded successfully!")
+        except Exception as e:
+            print(f"Error loading model: {e}")
+
         self.documents = {}
 
     def preprocess_pdf(self, pdf_path):
@@ -31,31 +35,15 @@ class DocumentQASystem:
             return {"answer": "Document not found", "source": ""}
 
         context = self.documents[doc_id]
+        inputs = self.tokenizer.encode_plus(question, context, return_tensors="pt", max_length=512, truncation=True)
         
-        # Prepare the input for the Phi-3 model
-        input_text = f"Context: {context}\nQuestion: {question}\nAnswer:"
+        # Run model inference
+        with torch.no_grad():
+            outputs = self.model(**inputs)
 
-        # Use the Phi-3 model to generate an answer
-        result = self.qa_pipeline(input_text, max_length=512, num_return_sequences=1)[0]
+        start_idx = outputs.logits.argmax()
+        end_idx = outputs.logits.argmax()
 
-        # Extract the generated answer
-        answer = result['generated_text'].strip().split("Answer:")[-1].strip()
-
-        # Get a source snippet (for simplicity, just take a snippet of the context)
-        source_start = max(0, input_text.find(question) - 50)  # 50 chars before the question
-        source_end = min(len(context), input_text.find(question) + 200)  # 200 chars after the question
-        source = context[source_start:source_end]
-
+        answer = self.tokenizer.decode(inputs["input_ids"][0][start_idx:end_idx + 1])
+        source = context[max(0, inputs["input_ids"][0][start_idx - 20]) : end_idx + 20]
         return {"answer": answer, "source": source}
-
-# Create an instance of the system
-doc_qa_system = DocumentQASystem()
-
-def answer_question_from_pdf(pdf_path, question):
-    """Answer a question based on the uploaded PDF."""
-    # Add the document to the system (with a unique doc_id)
-    doc_id = os.path.basename(pdf_path)
-    doc_qa_system.add_document(doc_id, pdf_path)
-
-    # Get the answer for the question
-    return doc_qa_system.answer_question(doc_id, question)

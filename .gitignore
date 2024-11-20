@@ -1,0 +1,14 @@
+# Python bytecode files
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+.venv/
+venv/
+
+# Streamlit cache
+.streamlit/
+
+# Uploaded document files
+uploaded_docs/

@@ -1,0 +1,9 @@
+[server]
+headless = true
+enableCORS = false
+maxUploadSize = 200
+runOnSave = true
+fileWatcherType = "none"
+
+[client]
+timeout = 300

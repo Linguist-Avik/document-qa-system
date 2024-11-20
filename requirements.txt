@@ -1,6 +1,6 @@
 streamlit
 transformers
-torch==2.0.1+cpu -f https://download.pytorch.org/whl/torch/
+torch>=2.0,<3.0
 numpy
 sentence-transformers
 PyPDF2

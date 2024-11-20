@@ -54,4 +54,7 @@ if __name__ == "__main__":
     if not os.path.exists("uploaded_docs"):
         os.makedirs("uploaded_docs")
 
+    # Check if model is ready
+    st.write("Checking if the model is ready...")
+    
     main()
